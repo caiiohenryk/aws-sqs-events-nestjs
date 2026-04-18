@@ -1,29 +1,60 @@
-import { BadRequestException, Body, Controller, Post } from '@nestjs/common';
+import {
+  BadRequestException,
+  Body,
+  Controller,
+  InternalServerErrorException,
+  Logger,
+  Post,
+} from '@nestjs/common';
 import { CallQueueRequestDto } from './dto/create-call.input.dto.js';
 import { SqsService } from '@ssut/nestjs-sqs';
 
 @Controller({ version: '1' })
 export class CreateCallController {
+  private readonly logger = new Logger(CreateCallController.name);
+
   constructor(private readonly sqsService: SqsService) {}
 
   @Post('create')
   async execute(@Body() payload: CallQueueRequestDto) {
+    const callId = String(payload.id ?? 'unknown');
+
     if (!payload.body.outcomingNumber || !payload.body.receivingNumber) {
+      this.logger.warn(
+        `Invalid call payload format | queue=CALL_QUEUE callId=${callId}`,
+      );
       throw new BadRequestException('Wrong phone call format');
     }
+
     if (payload.id === undefined || payload.id === null) {
+      this.logger.warn('Call payload missing id | queue=CALL_QUEUE');
       throw new BadRequestException('Message id is required');
     }
-    console.log(
-      `Starting processing of ${payload.body.receivingNumber} phone call`,
+
+    this.logger.log(
+      `Queueing call request | queue=CALL_QUEUE callId=${callId}`,
     );
-    await this.sqsService.send('CALL_QUEUE', {
-      ...payload,
-      id: String(payload.id),
-    });
+
+    try {
+      await this.sqsService.send('CALL_QUEUE', {
+        ...payload,
+        id: callId,
+      });
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      this.logger.error(
+        `Failed to queue call request | queue=CALL_QUEUE callId=${callId} reason=${reason}`,
+      );
+      throw new InternalServerErrorException('Could not enqueue call request');
+    }
+
+    this.logger.log(
+      `Call request queued successfully | queue=CALL_QUEUE callId=${callId}`,
+    );
+
     return {
       message: 'Call requested with success',
-      callId: `${payload.id}`,
+      callId,
     };
   }
 }
