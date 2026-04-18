@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { CreateQueueCommand } from '@aws-sdk/client-sqs';
+import { ZodValidationPipe } from 'nestjs-zod';
 import { AppModule } from './app.module.js';
 import {
   CALL_QUEUE_NAME,
@@ -47,6 +48,7 @@ async function bootstrap() {
   }
 
   const app = await NestFactory.create(AppModule);
+  app.useGlobalPipes(new ZodValidationPipe());
   const port = runtimeEnv.PORT ?? 3000;
   await app.listen(port);
   logger.log(`Application started | port=${port}`);

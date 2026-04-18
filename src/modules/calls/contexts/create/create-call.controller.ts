@@ -1,5 +1,4 @@
 import {
-  BadRequestException,
   Body,
   Controller,
   InternalServerErrorException,
@@ -17,19 +16,7 @@ export class CreateCallController {
 
   @Post('create')
   async execute(@Body() payload: CallQueueRequestDto) {
-    const callId = String(payload.id ?? 'unknown');
-
-    if (!payload.body.outcomingNumber || !payload.body.receivingNumber) {
-      this.logger.warn(
-        `Invalid call payload format | queue=CALL_QUEUE callId=${callId}`,
-      );
-      throw new BadRequestException('Wrong phone call format');
-    }
-
-    if (payload.id === undefined || payload.id === null) {
-      this.logger.warn('Call payload missing id | queue=CALL_QUEUE');
-      throw new BadRequestException('Message id is required');
-    }
+    const callId = payload.id;
 
     this.logger.log(
       `Queueing call request | queue=CALL_QUEUE callId=${callId}`,
